@@ -2,56 +2,45 @@
 # -*- coding: utf-8 -*-
 
 """
-Cria tabelas PostgreSQL a partir do schema exposto pela API.
-- Staging (landing.<TABLE_NAME>): todas as colunas como TEXT
-- Curada  (core.<TABLE_NAME>): tipos conforme mapeamento TYPE_MAP
+Cria uma tabela do zero no Postgres (Supabase) com:
+- DROP TABLE IF EXISTS ... CASCADE
+- Coluna PK incremental (IDENTITY)
+- nk_ota_localizer_id como coluna comum (sem UNIQUE)
+- Demais colunas conforme /schema da API (TYPE_MAP)
 
-Ajuste as constantes na seção CONFIG para seu ambiente.
+.env necessários:
+  PG_DSN=postgresql://user:pass@host:5432/db?sslmode=require
+  API_BASE=https://sua.api.com
+  API_TOKEN=seu_token
+  TABLE_NAME=nome_da_tabela
+  SCHEMA_TARGET=core   # opcional
 """
-import os
-from dotenv import load_dotenv
+
 import os
 import sys
 import requests
 from typing import Dict, List
+from dotenv import load_dotenv
 from psycopg import connect
 from psycopg.rows import dict_row
 
-# ======================
-# CONFIG
-# ======================
-
-# Carrega variáveis do arquivo .env para o ambiente
 load_dotenv()
 
-BASE = os.getenv("API_BASE")
-SCHEMA_ENDPOINT = "/schema"   # caminho do endpoint de schema
+PG_DSN       = os.getenv("PG_DSN")
+API_BASE     = os.getenv("API_BASE", "").rstrip("/")
+API_TOKEN    = os.getenv("API_TOKEN")
+TABLE_NAME   = os.getenv("TABLE_NAME")
+SCHEMA       = os.getenv("SCHEMA_TARGET", "core")
 
-TABLE_NAME = os.getenv("TABLE_NAME")
-if not TABLE_NAME:
-    raise ValueError("A variável TABLE_NAME não foi definida no ambiente.")  # nome da tabela a criar
+if not (PG_DSN and API_BASE and API_TOKEN and TABLE_NAME):
+    raise SystemExit("Faltam variáveis no .env: PG_DSN, API_BASE, API_TOKEN, TABLE_NAME")
 
-# Headers de autenticação obrigatórios da API
-headers = {
-    "x-api-key": os.getenv("API_TOKEN")
-}
+HEADERS = {"x-api-key": API_TOKEN}
 
-print(headers)
-
-PG_DSN = os.getenv("PG_DSN")
-
-SCHEMA_STAGING = "landing"
-SCHEMA_CORE = "core"
-
-# Se souber a PK de negócio, defina aqui (ex.: "nk_ota_localizer_id"); caso contrário, deixe None
-PRIMARY_KEY = os.getenv("PRIMARY_KEY")  # ou None
-
-# Mapeamento de tipos da API -> PostgreSQL
-# Ajuste se sua API usa outras labels (ex.: "decimal", "int32", etc.)
 TYPE_MAP: Dict[str, str] = {
     "string": "TEXT",
-    "float": "DOUBLE PRECISION",     # use NUMERIC(12,2) para dinheiro com precisão fixa
-    "decimal": "NUMERIC(12,2)",      # caso a API retorne "decimal"
+    "float": "DOUBLE PRECISION",
+    "decimal": "NUMERIC(12,2)",
     "int": "BIGINT",
     "integer": "BIGINT",
     "bool": "BOOLEAN",
@@ -62,101 +51,81 @@ TYPE_MAP: Dict[str, str] = {
     "time": "TIME",
 }
 
-# ======================
-# HELPERS
-# ======================
-
 def quote_ident(name: str) -> str:
-    """Cota identificadores de forma segura com aspas duplas."""
-    return '"' + name.replace('"', '""') + '"'
+    return '"' + str(name).replace('"', '""') + '"'
 
-def fetch_schema(base: str, endpoint: str, headers: Dict[str, str]) -> Dict:
-    url = base.rstrip("/") + endpoint
-    r = requests.get(url, headers=headers, timeout=60)
+def fetch_schema_columns() -> List[Dict[str, str]]:
+    r = requests.get(f"{API_BASE}/schema", headers=HEADERS, timeout=60)
     r.raise_for_status()
     js = r.json()
-    if "columns" not in js or not isinstance(js["columns"], list):
-        raise ValueError(f"Schema inesperado de {url}: {js}")
-    return js
+    cols = js.get("columns", [])
+    if not isinstance(cols, list) or not cols:
+        raise ValueError(f"/schema inesperado: {js}")
+    # normaliza: cada item deve ter name e type (type opcional)
+    return [{"name": c["name"], "type": str(c.get("type", "string")).lower()} for c in cols]
 
-def ensure_schemas(conn) -> None:
-    with conn.cursor() as cur:
-        cur.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_STAGING};")
-        cur.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_CORE};")
+def choose_pk_name(api_cols: List[Dict[str, str]], desired: str = "id") -> str:
+    existing = {c["name"].lower() for c in api_cols}
+    if desired.lower() in existing:
+        return "_id"
+    return desired
 
-def build_staging_ddl(table: str, columns: List[Dict[str, str]]) -> str:
-    cols = [f"  {quote_ident(c['name'])} TEXT" for c in columns]
-    cols.append("  raw_loaded_at TIMESTAMPTZ DEFAULT now()")
-    ddl = f"""CREATE TABLE IF NOT EXISTS {SCHEMA_STAGING}.{quote_ident(table)} (
-{",\n".join(cols)}
-);"""
-    return ddl
+def build_create_table_sql(api_cols: List[Dict[str, str]]) -> str:
+    table_ident = f'{quote_ident(SCHEMA)}.{quote_ident(TABLE_NAME)}'
 
-def build_core_ddl(table: str, columns: List[Dict[str, str]], pk: str | None) -> str:
-    mapped_cols = []
-    for c in columns:
-        api_t = str(c.get("type", "string")).lower()
-        pg_t = TYPE_MAP.get(api_t, "TEXT")
+    # define PK sem colidir com colunas da API
+    pk_col = choose_pk_name(api_cols, "id")
+
+    # mapeia colunas da API
+    mapped_cols = [f"  {quote_ident(pk_col)} BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY"]
+    for c in api_cols:
+        pg_t = TYPE_MAP.get(c["type"], "TEXT")
         mapped_cols.append(f"  {quote_ident(c['name'])} {pg_t}")
-    ddl = f"""CREATE TABLE IF NOT EXISTS {SCHEMA_CORE}.{quote_ident(table)} (
-{",\n".join(mapped_cols)}
-);"""
-    if pk:
-        ddl += f"""
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'pk_{table}'
-    ) THEN
-        ALTER TABLE {SCHEMA_CORE}.{quote_ident(table)}
-        ADD CONSTRAINT pk_{table} PRIMARY KEY ({quote_ident(pk)});
-    END IF;
-END$$;"""
-    return ddl
 
-# ======================
-# MAIN
-# ======================
+    # garante nk_ota_localizer_id como coluna comum caso não venha no /schema
+    if "nk_ota_localizer_id" not in {c["name"] for c in api_cols}:
+        mapped_cols.append(f"  {quote_ident('nk_ota_localizer_id')} TEXT")
+
+    # opcional: carimbo de carga
+    mapped_cols.append("  raw_loaded_at TIMESTAMPTZ DEFAULT now()")
+
+    ddl = f"""
+DROP TABLE IF EXISTS {table_ident} CASCADE;
+
+CREATE SCHEMA IF NOT EXISTS {quote_ident(SCHEMA)};
+
+CREATE TABLE {table_ident} (
+{",\n".join(mapped_cols)}
+);
+"""
+    return ddl
 
 def main():
-    print(f"→ Lendo schema em {BASE}{SCHEMA_ENDPOINT} ...")
-    schema = fetch_schema(BASE, SCHEMA_ENDPOINT, headers)
-    columns = schema["columns"]  # esperado: list[ {name, type} ]
-    if not columns:
-        print("Schema sem colunas. Nada a criar.", file=sys.stderr)
-        sys.exit(1)
+    print(f"→ Lendo /schema em {API_BASE}/schema …")
+    api_cols = fetch_schema_columns()
+    print(f"→ {len(api_cols)} colunas vindas da API.")
 
-    print(f"→ {len(columns)} colunas encontradas:")
-    for c in columns:
-        print(f"   - {c['name']} ({c.get('type','string')})")
+    ddl = build_create_table_sql(api_cols)
+    # print(ddl)  # descomente para inspecionar o SQL
 
-    staging_ddl = build_staging_ddl(TABLE_NAME, columns)
-    core_ddl = build_core_ddl(TABLE_NAME, columns, PRIMARY_KEY)
-
-    print("\n→ Conectando ao Postgres ...")
+    print("→ Conectando ao Postgres …")
     with connect(PG_DSN, row_factory=dict_row, autocommit=False) as conn:
         with conn.cursor() as cur:
             cur.execute("SET TIME ZONE 'UTC'")
-        ensure_schemas(conn)
-        print("→ Criando/validando tabela de staging ...")
-        with conn.cursor() as cur:
-            cur.execute(staging_ddl)
-        print("→ Criando/validando tabela curada ...")
-        with conn.cursor() as cur:
-            cur.execute(core_ddl)
+            print("→ Criando tabela do zero …")
+            cur.execute(ddl)
         conn.commit()
 
-    print("\n✅ Concluído.")
-    print(f"- Staging: {SCHEMA_STAGING}.{TABLE_NAME}")
-    print(f"- Curada : {SCHEMA_CORE}.{TABLE_NAME}")
-    if PRIMARY_KEY:
-        print(f"- PK     : {PRIMARY_KEY}")
+    print("✅ Tabela criada com sucesso.")
+    print(f"   - Schema : {SCHEMA}")
+    print(f"   - Tabela : {TABLE_NAME}")
+    print(f"   - PK     : {'id' if '\"id\" BIGINT' in ddl else '_id'} (IDENTITY)")
+    print("   - nk_ota_localizer_id: coluna comum (sem UNIQUE)")
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"ERRO: {e}", file=sys.stderr)
+        import traceback; traceback.print_exc()
+        print(f"ERRO: {type(e).__name__} {e}", file=sys.stderr)
         sys.exit(2)
