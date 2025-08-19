@@ -1,6 +1,9 @@
-# click_predict
+# Click Predict
 
-## Configuração do Ambiente (venv)
+
+![alt text](image.png)
+
+## Configuração do Ambiente Virtual (venv)
 
 Crie e ative um ambiente virtual para isolar as dependências do projeto.
 
@@ -38,6 +41,15 @@ pip install -r requirements.txt
 
 ---
 
+## Como executar o Streamlit
+
+Para iniciar a aplicação Streamlit, execute o comando abaixo no terminal, dentro da pasta do projeto:
+
+```bash
+streamlit app_1.py
+```
+
+---
 
 ## Dica
 
