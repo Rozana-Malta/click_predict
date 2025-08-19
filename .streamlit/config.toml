@@ -1,0 +1,12 @@
+# Cancela coleta de dados de telemetria
+[browser]
+gatherUsageStats = false
+
+# Configurações de tema
+[theme]
+primaryColor="#ff4f63"
+backgroundColor="#ffffff"
+secondaryBackgroundColor="#efefef"
+textColor="#262730"
+font="sans serif"
+base="light"
