@@ -7,7 +7,7 @@ from datetime import date, datetime
 
 warnings.filterwarnings('ignore')
 
-# Configure page
+# CONFIGURAÇÃO DA PAGINA
 st.set_page_config(
     page_title="Customer Insights Dashboard",
     page_icon="🔍",
@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS with your color palette
+# CUSTOMIZAÇÃO DA PALETA DE COR
 st.markdown("""
 <style>
     .main-header {
@@ -51,7 +51,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header
+# CABEÇALHO
 st.markdown("""
 <div class="main-header">
     <h1>🔍 Click Predict Dashboard</h1>
@@ -59,13 +59,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# File paths from user's provided data
+# BASES DE ARQUIVO ULTILIZADO NO DASHBOARD
 PATH_CLUSTERS = 'clientes_com_clusters_com_tipo_cliente.csv'
 PATH_PREDICAO_ROTA = 'predicoes_next_route_alterado.csv'
 PATH_PREDICAO_COMPRA = 'predicao_prox_compra_7_dias.csv'
 PATH_DADOS_COMPLETOS = 'df_curado_head5000.csv'
 
-# Function to load data from CSV and cache it
+# FUNÇÃO PARA LER OS ARQUIVOS CSV E SALVAR EM CACHE
 @st.cache_data
 def load_data():
     try:
@@ -74,7 +74,7 @@ def load_data():
         df_pred_rota = pd.read_csv(PATH_PREDICAO_ROTA)
         df_completo = pd.read_csv(PATH_DADOS_COMPLETOS)
         
-        # Merge dataframes for filtering
+        # MESCLAR DATAFRAMES E FILTRAR PELA COLUNA DE ID
         df_consolidado = pd.merge(df_clusters, df_pred_compra, on='client_id', how='left')
         df_consolidado = pd.merge(df_consolidado, df_pred_rota, on='client_id', how='left')
         df_consolidado = pd.merge(df_consolidado, df_completo[['client_id', 'purchase_datetime']], on='client_id', how='left')
@@ -90,14 +90,14 @@ df_consolidado = load_data()
 
 if df_consolidado is not None:
     
-    # Sidebar filters
+    # FILTRO DE BARRA LATERAL
     st.sidebar.header("⚙️ Filtros Interativos")
     
-    # Filter for clusters
+    # FILTRAR POR CLUSTERS
     cluster_options = ['Todos'] + sorted(df_consolidado['tipo_cliente'].unique().tolist())
     selected_cluster = st.sidebar.selectbox("Filtro por Grupo de Cliente", cluster_options)
 
-    # Date filters (Month/Year)
+    # FILTROS DE DATA 
     min_date = df_consolidado['purchase_datetime'].min().to_pydatetime()
     max_date = df_consolidado['purchase_datetime'].max().to_pydatetime()
 
@@ -106,13 +106,13 @@ if df_consolidado is not None:
                                         min_value=min_date,
                                         max_value=max_date)
     
-    # Filter for top routes
+    # FILTRO DAS TOP ROTAS
     top_options = ['Todos', 'top1', 'top2', 'top3', 'top4', 'top5']
     selected_tops = st.sidebar.multiselect("Filtrar por Top de Rota", options=top_options, default='Todos')
     if 'Todos' in selected_tops and len(selected_tops) > 1:
         selected_tops.remove('Todos')
 
-    # Percentage filter
+    # FILTRO DE PORCENTAGEM
     prob_threshold = st.sidebar.slider(
         "Filtrar por Probabilidade de Compra",
         min_value=0,
@@ -121,27 +121,27 @@ if df_consolidado is not None:
         step=1
     )
 
-    # Filter data based on selection
+    # FILTRAR DADOS COM BASE NA SELEÇÃO
     df_filtered = df_consolidado.copy()
     
     if selected_cluster != 'Todos':
         df_filtered = df_filtered[df_filtered['tipo_cliente'] == selected_cluster]
     
-    # Filter by date range
+    # FILTRO DE INTERVALOS DE DATAS
     if len(selected_date) == 2:
         start_date, end_date = selected_date
         df_filtered = df_filtered[(df_filtered['purchase_datetime'].dt.date >= start_date) & 
                                   (df_filtered['purchase_datetime'].dt.date <= end_date)]
     
-    # Filter by probability
+    # FILTRO POR PROBABILIDADE
     df_filtered = df_filtered[df_filtered['prob_prox_compra_7_dias'] >= prob_threshold / 100]
 
     # ---
-    # Download buttons in the sidebar
+    # BOTÃO DE DOWNLOAD DO CSV 
     st.sidebar.markdown("---")
     st.sidebar.subheader("📥 Opções de Download")
 
-    # The existing button for all predicted customers
+    # BOTÃO EXISTENTE PARA TODOS OS CLIENTES PREVISTO DE COMPRAR DENTRO DOS PROXIMOS 7 DIAS 
     clientes_com_previsao_positiva = df_consolidado[df_consolidado['prox_compra_7_dias'] == 1.0]
     if not clientes_com_previsao_positiva.empty:
         df_para_download_all = clientes_com_previsao_positiva[['client_id', 'top1', 'top2', 'top3', 'top4', 'top5']]
@@ -153,7 +153,7 @@ if df_consolidado is not None:
             mime='text/csv',
         )
         
-    # The new button for filtered predicted customers
+    # BOTÃO PARA DOWNLOAD DO ARQUIVO CSV COM BASES NOS FILTROS APLICADOS NO DASHBOARD
     clientes_com_previsao_positiva_filtrados = df_filtered[df_filtered['prox_compra_7_dias'] == 1.0]
     if not clientes_com_previsao_positiva_filtrados.empty:
         df_para_download_filtered = clientes_com_previsao_positiva_filtrados[['client_id', 'top1', 'top2', 'top3', 'top4', 'top5']]
@@ -165,11 +165,9 @@ if df_consolidado is not None:
             mime='text/csv',
         )
 
-    # ---
-
-    # Main content of the dashboard
+    # CONTEUDO PRINCIPAL DO DASHBOARD
     
-    # Metrics section
+    # METRICAS SELECIONADAS
     st.subheader("📊 Métricas Principais")
     col1, col2, col3 = st.columns(3)
 
@@ -311,4 +309,5 @@ if df_consolidado is not None:
     st.markdown(
         "<div style='text-align: center; color: #3b2899;'>🔍 Customer Insights Dashboard - Desenvolvido com Streamlit</div>",
         unsafe_allow_html=True
+
     )
