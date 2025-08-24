@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import warnings
 from datetime import date, datetime
+import sqlite3
 
 warnings.filterwarnings('ignore')
 
@@ -59,35 +60,65 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# BASES DE ARQUIVO ULTILIZADO NO DASHBOARD
+# Nomes dos seus arquivos CSV
 PATH_CLUSTERS = 'clientes_com_clusters_com_tipo_cliente.csv'
 PATH_PREDICAO_ROTA = 'predicoes_next_route_alterado.csv'
 PATH_PREDICAO_COMPRA = 'predicao_prox_compra_7_dias.csv'
 PATH_DADOS_COMPLETOS = 'df_curado_head5000.csv'
 
-# FUNÇÃO PARA LER OS ARQUIVOS CSV E SALVAR EM CACHE
+# Nomes das tabelas que serão criadas no banco de dados
+TABLE_CLUSTERS = 'clientes_com_clusters'
+TABLE_PREDICAO_ROTA = 'predicoes_next_route'
+TABLE_PREDICAO_COMPRA = 'predicao_prox_compra'
+TABLE_DADOS_COMPLETOS = 'df_curado'
+
+# Conexão com o banco de dados (será criado um arquivo .db na mesma pasta)
+conn = sqlite3.connect('dashboard_data.db')
+
+try:
+    # Carregue cada arquivo CSV em um DataFrame
+    df_clusters = pd.read_csv(PATH_CLUSTERS)
+    df_pred_compra = pd.read_csv(PATH_PREDICAO_COMPRA)
+    df_pred_rota = pd.read_csv(PATH_PREDICAO_ROTA)
+    df_completo = pd.read_csv(PATH_DADOS_COMPLETOS)
+
+    # Exporte cada DataFrame para uma tabela no banco de dados
+    df_clusters.to_sql(TABLE_CLUSTERS, conn, if_exists='replace', index=False)
+    df_pred_compra.to_sql(TABLE_PREDICAO_COMPRA, conn, if_exists='replace', index=False)
+    df_pred_rota.to_sql(TABLE_PREDICAO_ROTA, conn, if_exists='replace', index=False)
+    df_completo.to_sql(TABLE_DADOS_COMPLETOS, conn, if_exists='replace', index=False)
+
+    print("Banco de dados criado e populado com sucesso!")
+
+except FileNotFoundError:
+    print("Erro: Um ou mais arquivos CSV não foram encontrados.")
+finally:
+    conn.close()
+
+
+# FUNÇÃO PARA LER O BANCO DE DADOS 
 @st.cache_data
-def load_data():
-    try:
-        df_clusters = pd.read_csv(PATH_CLUSTERS)
-        df_pred_compra = pd.read_csv(PATH_PREDICAO_COMPRA)
-        df_pred_rota = pd.read_csv(PATH_PREDICAO_ROTA)
-        df_completo = pd.read_csv(PATH_DADOS_COMPLETOS)
-        
-        # MESCLAR DATAFRAMES E FILTRAR PELA COLUNA DE ID
-        df_consolidado = pd.merge(df_clusters, df_pred_compra, on='client_id', how='left')
-        df_consolidado = pd.merge(df_consolidado, df_pred_rota, on='client_id', how='left')
-        df_consolidado = pd.merge(df_consolidado, df_completo[['client_id', 'purchase_datetime']], on='client_id', how='left')
-        df_consolidado['purchase_datetime'] = pd.to_datetime(df_consolidado['purchase_datetime'])
-        df_consolidado.drop_duplicates(subset=['client_id'], inplace=True)
-        
-        return df_consolidado
-    except FileNotFoundError:
-        st.error("Erro: Um ou mais arquivos CSV não foram encontrados. Verifique os caminhos.")
-        return None
+def load_data_from_db():
+    conn = sqlite3.connect('dashboard_data.db')
+    
+    df_clusters = pd.read_sql_query("SELECT * FROM clientes_com_clusters", conn)
+    df_pred_compra = pd.read_sql_query("SELECT * FROM predicao_prox_compra", conn)
+    df_pred_rota = pd.read_sql_query("SELECT * FROM predicoes_next_route", conn)
+    df_completo = pd.read_sql_query("SELECT * FROM df_curado", conn)
+    
+    conn.close()
 
-df_consolidado = load_data()
+    # --- É aqui que a df_consolidado é criada! ---
+    df_consolidado = pd.merge(df_clusters, df_pred_compra, on='client_id', how='left')
+    df_consolidado = pd.merge(df_consolidado, df_pred_rota, on='client_id', how='left')
+    df_consolidado = pd.merge(df_consolidado, df_completo[['client_id', 'purchase_datetime']], on='client_id', how='left')
+    df_consolidado['purchase_datetime'] = pd.to_datetime(df_consolidado['purchase_datetime'])
+    df_consolidado.drop_duplicates(subset=['client_id'], inplace=True)
+    
+    return df_consolidado
 
+df_consolidado = load_data_from_db()
+    
 if df_consolidado is not None:
     
     # FILTRO DE BARRA LATERAL
