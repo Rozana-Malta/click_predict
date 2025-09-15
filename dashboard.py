@@ -87,40 +87,40 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Nomes dos seus arquivos CSV
-PATH_CLUSTERS = 'clientes_com_clusters_com_tipo_cliente.csv'
-PATH_PREDICAO_ROTA = 'predicoes_next_route_alterado.csv'
-PATH_PREDICAO_COMPRA = 'predicao_prox_compra_7_dias.csv'
-PATH_DADOS_COMPLETOS = 'df_curado_head5000.csv'
-
-# Nomes das tabelas que serão criadas no banco de dados
-TABLE_CLUSTERS = 'clientes_com_clusters'
-TABLE_PREDICAO_ROTA = 'predicoes_next_route'
-TABLE_PREDICAO_COMPRA = 'predicao_prox_compra'
-TABLE_DADOS_COMPLETOS = 'df_curado_head5000'
-
-# Conexão com o banco de dados (será criado um arquivo .db na mesma pasta)
-conn = sqlite3.connect('dashboard_data.db')
-
-try:
-    # Carregue cada arquivo CSV em um DataFrame
-    df_clusters = pd.read_csv(PATH_CLUSTERS)
-    df_pred_compra = pd.read_csv(PATH_PREDICAO_COMPRA)
-    df_pred_rota = pd.read_csv(PATH_PREDICAO_ROTA)
-    df_completo = pd.read_csv(PATH_DADOS_COMPLETOS, delimiter=";")
-
-    # Exporte cada DataFrame para uma tabela no banco de dados
-    df_clusters.to_sql(TABLE_CLUSTERS, conn, if_exists='replace', index=False)
-    df_pred_compra.to_sql(TABLE_PREDICAO_COMPRA, conn, if_exists='replace', index=False)
-    df_pred_rota.to_sql(TABLE_PREDICAO_ROTA, conn, if_exists='replace', index=False)
-    df_completo.to_sql(TABLE_DADOS_COMPLETOS, conn, if_exists='replace', index=False)
-
-    print("Banco de dados criado e populado com sucesso!")
-
-except FileNotFoundError:
-    print("Erro: Um ou mais arquivos CSV não foram encontrados.")
-finally:
-    conn.close()
+## Nomes dos seus arquivos CSV
+#PATH_CLUSTERS = 'clientes_com_clusters_com_tipo_cliente.csv'
+#PATH_PREDICAO_ROTA = 'data/predict_next_route.csv'
+#PATH_PREDICAO_COMPRA = 'data/predict_next_purchase.csv'
+#PATH_DADOS_COMPLETOS = 'data/df_curado_head5000.csv'
+#
+## Nomes das tabelas que serão criadas no banco de dados
+#TABLE_CLUSTERS = 'clientes_com_clusters'
+#TABLE_PREDICAO_ROTA = 'predicoes_next_route'
+#TABLE_PREDICAO_COMPRA = 'predicao_prox_compra'
+#TABLE_DADOS_COMPLETOS = 'df_curado_head5000'
+#
+## Conexão com o banco de dados (será criado um arquivo .db na mesma pasta)
+#conn = sqlite3.connect('dashboard_data.db')
+#
+#try:
+#    # Carregue cada arquivo CSV em um DataFrame
+#    df_clusters = pd.read_csv(PATH_CLUSTERS)
+#    df_pred_compra = pd.read_csv(PATH_PREDICAO_COMPRA)
+#    df_pred_rota = pd.read_csv(PATH_PREDICAO_ROTA)
+#    df_completo = pd.read_csv(PATH_DADOS_COMPLETOS, delimiter=";")
+#
+#    # Exporte cada DataFrame para uma tabela no banco de dados
+#    df_clusters.to_sql(TABLE_CLUSTERS, conn, if_exists='replace', index=False)
+#    df_pred_compra.to_sql(TABLE_PREDICAO_COMPRA, conn, if_exists='replace', index=False)
+#    df_pred_rota.to_sql(TABLE_PREDICAO_ROTA, conn, if_exists='replace', index=False)
+#    df_completo.to_sql(TABLE_DADOS_COMPLETOS, conn, if_exists='replace', index=False)
+#
+#    print("Banco de dados criado e populado com sucesso!")
+#
+#except FileNotFoundError:
+#    print("Erro: Um ou mais arquivos CSV não foram encontrados.")
+#finally:
+#    conn.close()
 
 # FUNÇÃO PARA LER O BANCO DE DADOS 
 @st.cache_data
@@ -130,7 +130,7 @@ def load_data_from_db():
     df_clusters = pd.read_sql_query("SELECT * FROM clientes_com_clusters", conn)
     df_pred_compra = pd.read_sql_query("SELECT * FROM predicao_prox_compra", conn)
     df_pred_rota = pd.read_sql_query("SELECT * FROM predicoes_next_route", conn)
-    df_completo = pd.read_sql_query("SELECT * FROM df_curado_head5000", conn)
+    df_completo = pd.read_sql_query("SELECT * FROM df_curado", conn)
     
     df_consolidado = pd.merge(df_clusters, df_pred_compra, on='client_id', how='left')
     df_consolidado = pd.merge(df_consolidado, df_pred_rota, on='client_id', how='left')
@@ -144,8 +144,11 @@ def load_data_from_db():
     # Adicione esta linha para salvar a tabela no banco de dados
     df_consolidado.to_sql('df_consolidado', conn, if_exists='replace', index=False)
 
+    conn.close()
+
     return df_consolidado
-conn.close()
+    
+
 df_consolidado = load_data_from_db()
 
 # --- FUNÇÕES PARA CADA PÁGINA ---
