@@ -57,7 +57,7 @@ pip install -r requirements.txt
 Para iniciar a aplicação Streamlit, execute o comando abaixo no terminal, dentro da pasta do projeto:
 
 ```bash
-streamlit app_1.py
+streamlit run streamlit_app.py
 ```
 
 ---
