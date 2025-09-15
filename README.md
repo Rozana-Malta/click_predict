@@ -1,10 +1,8 @@
 # Click Predict
 
-Este projeto foi desenvolvido por alunos do curso Tecnólogo em Ciências de Dados da Faculdade de Informática e Administração Paulista (FIAP) como parte das atividades acadêmicas. O objetivo é demonstrar o protótipo de um dashboard para a predição de tickets de passagens utilizando dados históricos.
+O _Click Predict_ é uma solução de inteligência preditiva desenvolvida para a ClickBus, com o objetivo de transformar dados históricos de compras em previsões acionáveis. Utilizando técnicas de ciência de dados e modelos como Random Forest Classifier, LightGBM e FP-Growth otimizado, o sistema prevê quais clientes têm maior probabilidade de realizar uma nova compra e quais rotas são mais prováveis.
 
-O dashboard foi construído com o _Streamlit_ e utiliza técnicas de análise de dados e predição para fornecer _insights_ sobre vendas de passagens rodoviárias pela _ClickBus_.
-
-O projeto inclui a análise de dados históricos de vendas de passagens, permitindo _insights_ sobre o comportamento dos clientes e previsões de demanda futura.
+A solução conta com um dashboard interativo em tempo real, que permite segmentar clientes, visualizar previsões e extrair listas prontas para campanhas personalizadas. Com isso, a ClickBus pode aumentar a retenção de clientes, reduzir a fragmentação da jornada, suavizar a sazonalidade e potencializar a receita incremental por meio de estratégias mais assertivas de marketing, vendas e planejamento.
 
 **Empresa parceira:** _ClickBus_
 
