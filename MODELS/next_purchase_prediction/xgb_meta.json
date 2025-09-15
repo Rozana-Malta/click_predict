@@ -1,0 +1,21 @@
+{
+  "feature_cols": [
+    "recency_days",
+    "new_recency_cluster",
+    "frequency",
+    "new_frequency_cluster",
+    "total_value",
+    "new_revenue_cluster",
+    "overall_score",
+    "DayDiff",
+    "DayDiff2",
+    "DayDiff3",
+    "avg_days_diff_1",
+    "std_days_diff_1"
+  ],
+  "classes": [
+    0,
+    1,
+    2
+  ]
+}
