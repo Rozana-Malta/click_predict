@@ -125,7 +125,7 @@ st.markdown("""
 # FUNÇÃO PARA LER O BANCO DE DADOS 
 @st.cache_data
 def load_data_from_db():
-    conn = sqlite3.connect('dashboard_data.db')
+    conn = sqlite3.connect('data/dashboard_data.db')
     
     df_clusters = pd.read_sql_query("SELECT * FROM clientes_com_clusters", conn)
     df_pred_compra = pd.read_sql_query("SELECT * FROM predicao_prox_compra", conn)
@@ -267,7 +267,7 @@ def render_dashboard_page(df_consolidado):
     
     # Adicionando o botão de voltar para a capa na barra lateral
     st.sidebar.markdown("---")
-    if st.sidebar.button("🏠 Voltar para a Capa"):
+    if st.sidebar.button("🏠 Voltar para o Início"):
         st.session_state.page = "Capa"
         st.rerun()
 
