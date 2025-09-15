@@ -12,7 +12,7 @@ O projeto inclui a análise de dados históricos de vendas de passagens, permiti
 
 **Tutor da turma:** Prof. Dr. Leandro Romualdo da Silva
 
-![alt text](image.png)
+![alt text](src/image.png)
 
 ## Configuração do Ambiente Virtual (venv)
 
@@ -69,3 +69,6 @@ Quando adicionar ou remover bibliotecas, atualize o arquivo:
 ```bash
 pip freeze > requirements.txt
 ```
+
+## MVP - Click Predict
+Acesse o link: [https://clickpredict-wearehumanosandnotrobots.streamlit.app/]
