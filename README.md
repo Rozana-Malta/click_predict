@@ -8,7 +8,7 @@ O projeto inclui a análise de dados históricos de vendas de passagens, permiti
 
 **Empresa parceira:** _ClickBus_
 
-**Desenvolvedores:** Ana Paula Bacelar, Igor Cardoso, Murilo Jucá, Rozana Malta e Ruan Garcia.
+**Desenvolvedores:** Igor Cardoso, Murilo Jucá, Rozana Malta e Ruan Garcia.
 
 **Tutor da turma:** Prof. Dr. Leandro Romualdo da Silva
 
